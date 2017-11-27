@@ -1,0 +1,2 @@
+# TyphaSeed
+TyphaSeed是一个基于WeMos D1开发板的物联网智能硬件开源项目。TyphaSeed采用WIFI通信，最大化的利用板载ESP8266的功能使智能硬件功能（如：利用建立临时WebServer并生成SettingPage的方式引导配置）更加丰富强大。
