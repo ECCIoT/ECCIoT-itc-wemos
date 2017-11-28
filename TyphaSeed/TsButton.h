@@ -12,16 +12,20 @@
 
 #endif
 
-class TsButton{
+#include "TsComponent.h"
+
+class TsButton:TsComponent{
 public:
 	TsButton(uint8_t pinBtn, uint8_t normal_state);
 	uint8_t readState();
 	void updateState();
 	uint8_t getPin();
+	void addEvent(TsEventListener eventFunc);
 	//event
 	void(*onKeyDown)();
 	void(*onKeyUp)();
 	void(*onKeyPress)();
 private:
+	TsEventListener listener;
 	uint8_t pin, lastState, state, normalState;
 };
