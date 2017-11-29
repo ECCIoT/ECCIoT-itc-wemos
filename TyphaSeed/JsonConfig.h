@@ -15,10 +15,10 @@
 
 class JsonConfig{
 public:
-	//回调函数，原型：FuncName(uint8_t error_code,String error_msg)
+	//回调函数，FuncName(uint8_t error_code,String& error_msg)
 	typedef std::function<void(uint8_t,String&)> JsonConfigCallBackFunc;
 
-	JsonConfig(String filename,JsonConfigCallBackFunc errorFunc);
+	JsonConfig(const String &filename, JsonConfigCallBackFunc errorFunc);
 	
 	//保存Json数据到配置文件
 	bool saveConfig(JsonObject& json);

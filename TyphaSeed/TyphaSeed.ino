@@ -11,32 +11,23 @@
 #include "pins_wemos_d1.h"
 
 #include "ESP8266WiFi.h"
-#include <ESP8266WebServer.h>
+#include "ESP8266WebServer.h"
 
-/**
-EEPROM-参数表
-*/
-struct StructParam {
-	/* - - - - - - - - 基本设置参数 - - - - - - - - - -*/
-	uint16_t _BaudRate = 115200;                             //波特率
-	/* - - - - - - - - WIFI配置参数 - - - - - - - - - -*/
-	char _WIFI_SSID[30] = "";                        //WIFI名称
-	char _WIFI_PSWD[30] = "";                       //WIFI密码
-	bool _SERVER_TYPE = 0;                                //服务器连接类型 0:TCP 1:UDP
-	char _SERVER_IP[30] = "";                    //服务器地址
-	int  _SERVER_PORT = 12345;                            //服务器端口
-	bool _SERVER_AUTOCT = 1;                                //服务器自动连接
-	/* - - - - - - - - 其他配置参数 - - - - - - - - - -*/
 
-	/* - - - - - - - - - - - - - - - - - - - - - - - - - */
-} ParameterList;
 
 ESP8266WebServer server(80);
-
 TsLed led(PIN_LED);
 TsButton btn(PIN_D8,HIGH);
 
-void(*resetFunc) (void) = 0; //重启命令
+const String CONFIG_FILE_NAME = "/config.json";
+JsonConfig jc(CONFIG_FILE_NAME, jc_ErrorCallback);
+
+void jc_ErrorCallback(uint8_t error_code, String& error_msg){
+	Serial.printf("JsonConfig Error : (#%d) %s", error_code, error_msg);
+}
+
+
+void(*resetFunc) (void) = 0; //重启
 
 void btn_OnKeyDown(){
 	led.reverse();

@@ -6,7 +6,7 @@
 #include "ArduinoJson.h"
 #include "FS.h"
 
-JsonConfig::JsonConfig(String filename, JsonConfigCallBackFunc errorFunc){
+JsonConfig::JsonConfig(const String &filename, JsonConfigCallBackFunc errorFunc){
 	fileName = filename;
 	errorCallback = errorFunc;
 }
