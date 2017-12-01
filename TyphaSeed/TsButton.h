@@ -9,10 +9,11 @@
 	#include "WProgram.h"
 #endif
 
+#include "TsComponent.h"
 
 #endif
 
-#include "TsComponent.h"
+
 
 class TsButton:TsComponent{
 public:

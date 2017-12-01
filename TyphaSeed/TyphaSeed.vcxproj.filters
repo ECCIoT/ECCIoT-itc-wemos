@@ -33,13 +33,13 @@
     <ClInclude Include="TsWaterSensor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="JsonConfig.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="TsComponent.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="G:\下载\火狐下载\ArduinoJson.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="JsonConfig.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

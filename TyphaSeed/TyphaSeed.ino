@@ -5,6 +5,7 @@
 */
 
 #include "JsonConfig.h"
+
 #include "TsWaterSensor.h"
 #include "TsLed.h"
 #include "TsButton.h"
@@ -14,30 +15,41 @@
 #include "ESP8266WebServer.h"
 
 
-
 ESP8266WebServer server(80);
 TsLed led(PIN_LED);
 TsButton btn(PIN_D8,HIGH);
 
 const String CONFIG_FILE_NAME = "/config.json";
-JsonConfig jc(CONFIG_FILE_NAME, jc_ErrorCallback);
 
-void jc_ErrorCallback(uint8_t error_code, String& error_msg){
-	Serial.printf("JsonConfig Error : (#%d) %s", error_code, error_msg);
+//创建JsonConfig
+/*
+bool js_errorCallback(uint8_t error_code, String& error_msg){
+	Serial.printf("JsonConfig Error : (#%d) ", error_code);
+	Serial.println(error_msg);
+	return false;
 }
+JsonConfig jc(CONFIG_FILE_NAME, js_errorCallback);
+*/
+JsonConfig jc(CONFIG_FILE_NAME,
+	[](uint8_t error_code, String& error_msg)->bool{
+		Serial.printf("JsonConfig Error : (#%d) ", error_code);
+		Serial.println(error_msg);
+		return false;
+	}
+);
 
-
-void(*resetFunc) (void) = 0; //重启
+//重启
+void(*reset) (void) = 0; 
 
 void btn_OnKeyDown(){
 	led.reverse();
 }
 
-//Setting页面程序
+//Setting页面
 void SettingPageWebHander(){
 
 	//为服务器添加一个站点
-	server.on("/setting", [](){
+	server.on("/setting", [jc](){
 
 		//当有2个参数时，保存数据
 		if (server.args() == 2){
@@ -45,9 +57,26 @@ void SettingPageWebHander(){
 			server.sendContent(server.arg(0) + "<br/>" + server.arg(1));
 			server.sendContent("</body></html>");
 
+			String ssid = server.arg(0);
+			String pswd = server.arg(1);
+			Serial.println("Receive wifi ssid and password from setting page:");
+			Serial.println(ssid);
+			Serial.println(pswd);
+
+			JsonObject& config = jc.getConfigJson();
+			Serial.println("[#01] - JsonObject& config = jc.getConfigJson();");
+			config["WIFI_SSID"] = server.arg(0);
+			Serial.println("[#02] - config[\"WIFI_SSID\"] = server.arg(0);");
+			config["WIFI_PSWD"] = server.arg(1);
+			Serial.println("[#03] - config[\"WIFI_PSWD\"] = server.arg(1);");
+			jc.saveConfig(config);
+			Serial.println("[#04] - jc.saveConfig(config);");
+
 			//重启程序
-			delay(500);
-			resetFunc();      
+			Serial.println("Restart the board after 5 seconds...");
+			delay(5000); 
+			server.close();
+			reset();      
 		}
 		//当没有参数（或其他参数个数），显示配置页面，但函数不是变量
 		else{
@@ -63,7 +92,6 @@ void SettingPageWebHander(){
 			//如果搜索到WiFi信号
 			if (n > 0){
 				//表单开始
-
 				server.sendContent("<form>");
 				//WIFI SSID下拉选择框
 				server.sendContent("<h2>WIFI SSID:</h2><select name=\"ssid\">");
@@ -98,15 +126,34 @@ void SettingPageWebHander(){
 void setup() {
 	Serial.begin(115200);
 	Serial.println("Start");
+	led.setState(false);
 
-	/*
 	btn.addEvent([]{
-		led.reverse();
-		Serial.println("LED引脚电位已反转.");
+		if (jc.isExist()){
+			jc.deleteConfig();
+			Serial.println("Config file has been deleted.");
+		}
+		else{
+			Serial.println("Config file does not exist.");
+		}
 	});
-	*/
 
-	btn.onKeyDown = btn_OnKeyDown;
+	if (!jc.isExist()){
+		led.setState(false);
+		Serial.println("No configuration files were found, please access SETTING page.");
+		Serial.println("URL:http://192.168.4.1/setting");
+		SettingPageWebHander();
+	}
+	else{
+		JsonObject& config = jc.getConfigJson();
+		String ssid = config["WIFI_SSID"];
+		String pswd = config["WIFI_PSWD"];
+		Serial.println("Wifi ssid and password:");
+		Serial.println(ssid);
+		Serial.println(pswd);
+	}
+
+	//btn.onKeyDown = btn_OnKeyDown;
 	//WiFi.softAP("WeMos D1", "12345678");
 	//Serial.println("Server started");
 	//Serial.println("http://192.168.4.1/setting");
@@ -116,4 +163,5 @@ void setup() {
 void loop() {
 	btn.updateState();
 	delay(50);
+	led.reverse();
 }

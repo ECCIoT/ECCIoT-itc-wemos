@@ -6,9 +6,26 @@
 #include "ArduinoJson.h"
 #include "FS.h"
 
+//重启
+void(*reset0) (void) = 0;
+
+//显示重启提示并延时重启
+void resetPrompt(int delayTime = 3000){
+	Serial.println("<!> This board is rebooting...");
+	delay(delayTime);
+	reset0();
+}
+
+
 JsonConfig::JsonConfig(const String &filename, JsonConfigCallBackFunc errorFunc){
 	fileName = filename;
 	errorCallback = errorFunc;
+
+	if (!SPIFFS.begin()) {
+		String msg = "Failed to mount file system";
+		if (!errorCallback(0, msg))
+			resetPrompt();
+	}
 }
 
 bool JsonConfig::saveConfig(JsonObject& json){
@@ -17,42 +34,61 @@ bool JsonConfig::saveConfig(JsonObject& json){
 	//异常检测:写入模式无法打开文件，错误代码4
 	if (!configFile) {
 		String msg = "Failed to open config file for writing";
-		errorCallback(4,msg);
-		return false;
+		if(!errorCallback(4,msg))
+			return false;
 	}
-
+	Serial.println("[#05] - if (!configFile);");
 	json.printTo(configFile);
 	return true;
 }
 
 
-JsonObject JsonConfig::getJsonObject(){
+JsonObject& JsonConfig::getConfigJson(bool bAutoCreate){
 
-	//打开文件（读取模式）
-	File configFile = SPIFFS.open(fileName, "r");
-	//异常检测:无法打开文件，错误代码1
-	if (!configFile) {
-		String msg = "Failed to open config file";
-		errorCallback(1, msg);
-		return;
+	//如果文件不存在且使用自动创建时
+	if (bAutoCreate && isExist() == false){
+		StaticJsonBuffer<200> jsonBuffer;
+		return jsonBuffer.createObject();
 	}
+	else{
+		//打开文件（读取模式）
+		File configFile = SPIFFS.open(fileName, "r");
 
-	//读取文件大小
-	size_t size = configFile.size();
-	//异常检测:文件过大，错误代码2
-	if (size > 1024) {
-		String msg = "Config file size is too large";
-		errorCallback(2, msg);
-		return;
+		//异常检测:无法打开文件，错误代码1
+		if (!configFile) {
+			String msg = "Failed to open config file";
+			if (!errorCallback(1, msg))
+				resetPrompt();
+		}
+
+		//读取文件大小
+		size_t size = configFile.size();
+		//异常检测:文件过大，错误代码2
+		if (size > 1024) {
+			String msg = "Config file size is too large";
+			if (!errorCallback(2, msg))
+				resetPrompt();
+		}
+
+		std::unique_ptr<char[]> buf(new char[size]);
+
+		configFile.readBytes(buf.get(), size);
+
+		StaticJsonBuffer<200> jsonBuffer;
+		return jsonBuffer.parseObject(buf.get());
 	}
+	
 
-	std::unique_ptr<char[]> buf(new char[size]);
+	
 
-	configFile.readBytes(buf.get(), size);
+}
 
-	StaticJsonBuffer<200> jsonBuffer;
-	return jsonBuffer.parseObject(buf.get());
+bool JsonConfig::deleteConfig(){
+	return SPIFFS.remove(fileName);
+}
 
+bool JsonConfig::isExist(){
+	return SPIFFS.exists(fileName);
 }
 
 bool JsonConfig::isParseSuccess(JsonObject& json){

@@ -38,7 +38,8 @@ void TsButton::updateState(){
 	}
 	//当前状态为非正常电平，上一状态为正常电平，则为按键按下状态
 	else if (state == !normalState && lastState == normalState){
-		if (onKeyDown != 0)onKeyDown(); listener();
+		if (onKeyDown != 0)onKeyDown();
+		listener();
 	}
 	//当前状态为非正常电平，上一状态为非正常电平，则为按键持续按压状态
 	else if (state == !normalState && lastState == !normalState){
