@@ -37,7 +37,6 @@ bool JsonConfig::saveConfig(JsonObject& json){
 		if(!errorCallback(4,msg))
 			return false;
 	}
-	Serial.println("[#05] - if (!configFile);");
 	json.printTo(configFile);
 	return true;
 }
@@ -47,7 +46,6 @@ JsonObject& JsonConfig::getConfigJson(bool bAutoCreate){
 
 	//如果文件不存在且使用自动创建时
 	if (bAutoCreate && isExist() == false){
-		StaticJsonBuffer<200> jsonBuffer;
 		return jsonBuffer.createObject();
 	}
 	else{
@@ -74,7 +72,6 @@ JsonObject& JsonConfig::getConfigJson(bool bAutoCreate){
 
 		configFile.readBytes(buf.get(), size);
 
-		StaticJsonBuffer<200> jsonBuffer;
 		return jsonBuffer.parseObject(buf.get());
 	}
 	

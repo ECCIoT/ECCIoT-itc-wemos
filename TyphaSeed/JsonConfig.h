@@ -38,6 +38,7 @@ public:
 	//判断配置文件是否存在
 	bool isExist();
 private:
+	StaticJsonBuffer<200> jsonBuffer;
 	String fileName;
 	JsonConfigCallBackFunc errorCallback;
 };
