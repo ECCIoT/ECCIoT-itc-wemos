@@ -14,11 +14,22 @@
 #include "ESP8266WiFi.h"
 #include "ESP8266WebServer.h"
 
+
+/*************************************************************************************/
+
+//当前的版本信息
+#define _VERSION "TyphaSeed v0.9.1 beta"
+
+//配置文件中WiFi的SSID和Password字段名称
 #define STR_WIFI_SSID "WIFI_SSID"
 #define STR_WIFI_PSWD "WIFI_PSWD"
 
+//创建热点的SSID和Password
 #define STR_AP_SSID "WeMos D1"
 #define STR_AP_PSWD "12345678"
+
+/*************************************************************************************/
+
 
 ESP8266WebServer server(80);
 TsLed led(PIN_LED);
@@ -27,14 +38,6 @@ TsButton btn(PIN_D8,HIGH);
 const String CONFIG_FILE_NAME = "/config.json";
 
 //创建JsonConfig
-/*
-bool js_errorCallback(uint8_t error_code, String& error_msg){
-	Serial.printf("JsonConfig Error : (#%d) ", error_code);
-	Serial.println(error_msg);
-	return false;
-}
-JsonConfig jc(CONFIG_FILE_NAME, js_errorCallback);
-*/
 JsonConfig jc(CONFIG_FILE_NAME,
 	[](uint8_t error_code, String& error_msg)->bool{
 		Serial.printf("JsonConfig Error : (#%d) ", error_code);
@@ -50,14 +53,22 @@ void btn_OnKeyDown(){
 	led.reverse();
 }
 
-//Setting页面
-void SettingsPageWebHander(){
+//创建Web页面Settings,等待(阻塞)完成WiFi配置
+void createSettingWebPage(){
 
-	//为服务器添加一个站点
-	server.on("/settings", [jc](){
+	Serial.println("No configuration files were found, please access SETTING page.");
+	Serial.println("URL:http://192.168.4.1/settings");
+
+	//启动WIFI热点
+	WiFi.softAP(STR_AP_SSID, STR_AP_PSWD);
+
+	//为服务器添加settings页面
+	server.on("/settings", [](){
 
 		//当有2个参数时，保存数据
 		if (server.args() == 2){
+
+			Serial.println("\n\nReceived configuration arguments!");
 
 			//将WIFI的账号和密码保存到配置文件
 			JsonObject& config = jc.getConfigJson();
@@ -67,15 +78,18 @@ void SettingsPageWebHander(){
 			jc.saveConfig(config);
 
 			//显示保存的内容
-			Serial.print("Contents of the ConfigFile :");
+			Serial.print("\nContents:");
 			config.printTo(Serial);
 			Serial.println();
 
-			//重启程序
-			Serial.println("Restart the board after 5 seconds...");
-			delay(5000); 
+			//关闭Web服务器
+			Serial.println("WiFi configuration complete!");
 			server.close();
-			reset();      
+
+			//关闭热点
+			WiFi.softAPdisconnect();
+
+			return;
 		}
 		//当没有参数（或其他参数个数），显示配置页面，但函数不是变量
 		else{
@@ -113,10 +127,92 @@ void SettingsPageWebHander(){
 			server.sendContent("</div></body></html>");
 		}
 	});
+
+	//启动Web服务器
 	server.begin();
-	while (1){
+
+	//循环接收客户端的页面请求
+	int i = 0;
+	while (jc.isExist() == false){
+		if (i++ % 20 == 0){
+			Serial.print("\nPending for finished the configuration");
+			i = 1;
+		}
+
+		//处理页面请求
 		server.handleClient();
+		Serial.print(".");
+		delay(500);
 	}
+}
+
+//连接WiFi
+void connectWiFi(){
+	/*
+	根据配置文件是否存在确定当前是否为初始状态（需要配置WIFI的名称和密码）
+	*/
+
+	//若配置文件不存在
+	if (!jc.isExist()){
+		//创建Web页面Settings,等待(阻塞)完成WiFi配置
+		createSettingWebPage();
+	}
+
+	//若配置文件存在
+	JsonObject& config = jc.getConfigJson();
+	String ssid = config[STR_WIFI_SSID];
+	String pswd = config[STR_WIFI_PSWD];
+
+	//显示保存的内容
+	Serial.print("Contents of the ConfigFile :");
+	config.printTo(Serial);
+	Serial.println();
+
+	//连接WIFI
+	WiFi.begin(ssid.c_str(), pswd.c_str());
+
+	//等待WIFI连接
+	int timmer = 0;
+	int intDelayTime = 500;
+	bool bConnected = false;
+	Serial.print("WIFI connecting");
+
+	//循环检测WIFI的连接状态
+	while (true) {
+		delay(intDelayTime);
+		led.reverse();
+		Serial.print(".");
+
+		//判断WIFI当前状态
+		switch (WiFi.status()){
+
+		//若连接失败
+		case WL_CONNECT_FAILED:
+			//删除配置文件
+			jc.deleteConfig();
+			Serial.println("\nWIFI ssid(or password) error, config file has been deleted.");
+			//创建Web页面Settings,等待(阻塞)完成WiFi配置
+			createSettingWebPage();
+			break;
+
+		//若找不到无指定SSID的信号
+		case WL_NO_SSID_AVAIL:
+			//延长WiFi信号扫描的间隔时间
+			intDelayTime = 5000;
+			break;
+
+		//若WIFI连接成功
+		case WL_CONNECTED:
+			bConnected = true;
+			Serial.println("\nWIFI connection success!");
+			Serial.print("IP Address:");
+			Serial.println(WiFi.localIP());
+			break;
+		}
+
+		if (bConnected)break;
+	}
+	
 }
 
 void setup() {
@@ -134,77 +230,14 @@ void setup() {
 		}
 	});
 
-	/*
-	 根据配置文件是否存在确定当前是否为初始状态（需要配置WIFI的名称和密码）
-	*/
-	//若配置文件存在
-	if (!jc.isExist()){
-		//启动WIFI热点
-		WiFi.softAP(STR_AP_SSID, STR_AP_PSWD);
+	//与WiFi建立连接
+	connectWiFi();
 
-		//创建Web页面：Settings
-		Serial.println("No configuration files were found, please access SETTING page.");
-		Serial.println("URL:http://192.168.4.1/settings");
-		SettingsPageWebHander();
-	}
-	//若配置文件存在
-	else{
-		JsonObject& config = jc.getConfigJson();
-		String ssid = config[STR_WIFI_SSID];
-		String pswd = config[STR_WIFI_PSWD];
-		
-		//显示保存的内容
-		Serial.print("Contents of the ConfigFile :");
-		config.printTo(Serial);
-		Serial.println();
-
-		//连接WIFI
-		WiFi.begin(ssid.c_str(),pswd.c_str());
-
-		//等待WIFI连接
-		int timmer = 0;
-		bool bConnected = false;
-		Serial.print("WIFI connecting");
-
-		//循环检测WIFI的连接状态
-		while (true) {
-			delay(500);
-			//等待10秒
-			if (timmer++ > 20 && !bConnected){
-				Serial.println("WIFI connect timeout!");
-				reset();
-				break;
-			}
-			Serial.print(".");
-
-			//判断WIFI当前状态
-			switch (WiFi.status()){
-
-			//若连接失败或无指定SSID的信号
-			case WL_CONNECT_FAILED || WL_NO_SSID_AVAIL:	
-				jc.deleteConfig();
-				Serial.println("WIFI ssid(or password) error, config file has been deleted.");
-				break;
-
-			//若WIFI连接成功
-			case WL_CONNECTED:							
-				bConnected = true;
-				Serial.println("\nWIFI connection success!");
-				Serial.print("IP Address:");
-				Serial.println(WiFi.localIP());
-				break;
-			}
-
-			if (bConnected)break;
-		}
-		
-		/*接下来就可以开始TCP通信了！*/
-
-	}
+	/*接下来就可以开始TCP通信了！*/
+	Serial.println("OK!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 }
 
 void loop() {
 	btn.updateState();
 	delay(50);
-	led.reverse();
 }
