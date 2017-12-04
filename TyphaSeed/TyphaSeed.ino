@@ -4,6 +4,7 @@
  Author:	Landriesnidis
 */
 
+#include "ATCommand.h"
 #include "JsonConfig.h"
 
 #include "TsWaterSensor.h"
@@ -32,10 +33,15 @@
 
 
 ESP8266WebServer server(80);
+WiFiClient client;
+
+ATCommand atc;
+
 TsLed led(PIN_LED);
 TsButton btn(PIN_D8,HIGH);
 
 const String CONFIG_FILE_NAME = "/config.json";
+
 
 //创建JsonConfig
 JsonConfig jc(CONFIG_FILE_NAME,
@@ -68,7 +74,7 @@ void createSettingWebPage(){
 		//当有2个参数时，保存数据
 		if (server.args() == 2){
 
-			Serial.println("\n\nReceived configuration arguments!");
+			Serial.println("\n\nReceived configuration parameters!");
 
 			//将WIFI的账号和密码保存到配置文件
 			JsonObject& config = jc.getConfigJson();
@@ -140,8 +146,8 @@ void createSettingWebPage(){
 		}
 
 		//处理页面请求
-		server.handleClient();
 		Serial.print(".");
+		server.handleClient();
 		delay(500);
 	}
 }
@@ -164,11 +170,28 @@ void connectWiFi(){
 	String pswd = config[STR_WIFI_PSWD];
 
 	//显示保存的内容
-	Serial.print("Contents of the ConfigFile :");
-	config.printTo(Serial);
 	Serial.println();
+	Serial.println("WiFi connection parameters:");
+	Serial.println("WIFI_SSID:" + ssid);
+	Serial.println("WIFI_PSWD:" + pswd);
 
 	//连接WIFI
+	if (WiFi.isConnected()){
+		Serial.print("WIFI has been connected. - SSID:");
+		Serial.println(WiFi.SSID());
+
+		if (WiFi.SSID().equals(ssid.c_str())){
+			Serial.print("IP Address:");
+			Serial.println(WiFi.localIP());
+			return;
+		}
+		else{
+			WiFi.disconnect();
+			delay(3000);
+		}
+	}
+
+
 	WiFi.begin(ssid.c_str(), pswd.c_str());
 
 	//等待WIFI连接
@@ -179,15 +202,29 @@ void connectWiFi(){
 
 	//循环检测WIFI的连接状态
 	while (true) {
+		timmer++;
 		delay(intDelayTime);
 		led.reverse();
 		Serial.print(".");
+
+		//超时时间为30s
+		if (30 < ((intDelayTime / 1000.0)*timmer)){
+			Serial.println("\nWIFI connection timeout!");
+			break;
+		}
 
 		//判断WIFI当前状态
 		switch (WiFi.status()){
 
 		//若连接失败
 		case WL_CONNECT_FAILED:
+			static int failedTimes = 1;
+			if (failedTimes <= 5){
+				Serial.printf("WIFI connect failed. try again. (%d/5)\n",failedTimes++);
+				WiFi.begin(ssid.c_str(), pswd.c_str());
+				break;
+			}
+			failedTimes = 1;
 			//删除配置文件
 			jc.deleteConfig();
 			Serial.println("\nWIFI ssid(or password) error, config file has been deleted.");
@@ -197,8 +234,14 @@ void connectWiFi(){
 
 		//若找不到无指定SSID的信号
 		case WL_NO_SSID_AVAIL:
+			if (intDelayTime != 5000){
+				Serial.print("\nNo SSID(");
+				Serial.print(ssid);
+				Serial.println(") avail. Change the scan interval to 5 seconds.");
+			}
 			//延长WiFi信号扫描的间隔时间
 			intDelayTime = 5000;
+			timmer = 0;
 			break;
 
 		//若WIFI连接成功
@@ -215,11 +258,39 @@ void connectWiFi(){
 	
 }
 
+
+void initATCommands(){
+	String strLedON = "LED_ON";
+	String strLedOFF = "LED_OFF";
+	String strLed = "LED";
+
+	CommandItem ledON(strLedON, [](String)->bool{
+		led.setState(true);
+		return true;
+	});
+
+	
+	CommandItem ledOFF(strLedOFF, [](String)->bool{
+		led.setState(false);
+		return true;
+	});
+
+	CommandItem ledReverse(strLed, [](String)->bool{
+		led.reverse();
+		return true;
+	});
+
+	
+	atc.addCommandItem(ledOFF);
+	atc.addCommandItem(ledON);
+	atc.addCommandItem(ledReverse);
+}
+
 void setup() {
 	Serial.begin(115200);
 	Serial.println("Start");
+	//WiFi.disconnect();
 	led.setState(false);
-
 	btn.addEvent([]{
 		if (jc.isExist()){
 			jc.deleteConfig();
@@ -230,14 +301,64 @@ void setup() {
 		}
 	});
 
+	//初始化AT指令集
+	initATCommands();
+
 	//与WiFi建立连接
 	connectWiFi();
 
+	
+
 	/*接下来就可以开始TCP通信了！*/
-	Serial.println("OK!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+	//Serial.println("OK!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+	
+	if (!client.connect("172.20.73.137",60000)){
+		Serial.println("Failed to connect to the server.");
+		return;
+	}
+	client.println("Hello World!");
+}
+
+void updateComponentState(){
+	btn.updateState();
+}
+
+void receiveDataFromTCP(){
+	while (true){
+		String line = client.readStringUntil('\n');
+		if (line.length() > 0){
+			if (atc.parse(line)){
+				Serial.print("AT Complete : ");
+				Serial.println(line);
+			}
+			else{
+				Serial.print("AT Unable to identify : ");
+				Serial.println(line);
+			}
+		}
+		else{
+			break;
+		}
+	}
 }
 
 void loop() {
-	btn.updateState();
-	delay(50);
+	/*一、检测网络连接状态*/
+	//如果丢失WIFI连接
+	//if (WiFi.status() == WL_CONNECTION_LOST){
+	//	connectWiFi();
+	//}
+
+	/*二、更新电元状态（这部分如果能实现多线程就好啦！）*/
+	updateComponentState();
+
+	/*三、接收串口消息*/
+	if (Serial.available()){
+		//如果串口连接存在，xxxxx
+	}
+
+	/*四、接收TCP消息*/
+	receiveDataFromTCP();
+
+	
 }

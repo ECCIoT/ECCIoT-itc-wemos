@@ -21,7 +21,7 @@ public:
 	//回调函数，FuncName(uint8_t error_code,String& error_msg)
 	typedef std::function<bool(uint8_t,String&)> JsonConfigCallBackFunc;
 
-	JsonConfig(const String &filename, std::function<bool(uint8_t, String&)> errorFunc);
+	JsonConfig(const String &filename, JsonConfigCallBackFunc errorFunc);
 	
 	//保存Json数据到配置文件
 	bool saveConfig(JsonObject& json);
