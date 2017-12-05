@@ -191,7 +191,6 @@ void connectWiFi(){
 		}
 	}
 
-
 	WiFi.begin(ssid.c_str(), pswd.c_str());
 
 	//µÈ´ıWIFIÁ¬½Ó
@@ -260,23 +259,22 @@ void connectWiFi(){
 
 
 void initATCommands(){
-	String strLedON = "LED_ON";
-	String strLedOFF = "LED_OFF";
-	String strLed = "LED";
 
-	CommandItem ledON(strLedON, [](String)->bool{
+	CommandItem ledON("LED_ON", [](CommandParameter param)->bool{
 		led.setState(true);
 		return true;
 	});
 
 	
-	CommandItem ledOFF(strLedOFF, [](String)->bool{
+	CommandItem ledOFF("LED_OFF", [](CommandParameter param)->bool{
 		led.setState(false);
 		return true;
 	});
 
-	CommandItem ledReverse(strLed, [](String)->bool{
+	CommandItem ledReverse("LED", [](CommandParameter param)->bool{
 		led.reverse();
+		Serial.printf("parameter count : %d\n", param.count());
+		param.get(0);
 		return true;
 	});
 
