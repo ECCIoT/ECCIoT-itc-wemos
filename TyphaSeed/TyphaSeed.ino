@@ -260,28 +260,39 @@ void connectWiFi(){
 
 void initATCommands(){
 
-	CommandItem ledON("LED_ON", [](CommandParameter param)->bool{
-		led.setState(true);
-		return true;
-	});
-
-	
-	CommandItem ledOFF("LED_OFF", [](CommandParameter param)->bool{
-		led.setState(false);
-		return true;
-	});
-
-	CommandItem ledReverse("LED", [](CommandParameter param)->bool{
-		led.reverse();
+	CommandItem cmdTest("TEST", [](CommandParameter param)->String{
 		Serial.printf("parameter count : %d\n", param.count());
-		param.get(0);
-		return true;
+		for (int i = 0; i < param.count(); i++){
+			printf("arg%d=%s\n", i, param.get(i).c_str());
+		}
+		return "OK";
+	});
+
+	CommandItem cmdLED("LED", [](CommandParameter param)->String{
+		if (param.count() != 1){
+			return "ERROR";
+		}
+		String arg0 = param.get(0);
+		if (arg0.equals("-1")){
+			led.reverse();
+		}
+		else if (arg0.equals("0")){
+			led.setState(true);
+		}
+		else if (arg0.equals("1")){
+			led.setState(false);
+		}
+		else{
+			return "ERROR";
+		}
+		
+		return "OK";
 	});
 
 	
-	atc.addCommandItem(ledOFF);
-	atc.addCommandItem(ledON);
-	atc.addCommandItem(ledReverse);
+
+	atc.addCommandItem(cmdTest);
+	atc.addCommandItem(cmdLED);
 }
 
 void setup() {
@@ -321,18 +332,25 @@ void updateComponentState(){
 	btn.updateState();
 }
 
+void receiveDataFromSerial(){
+	char c;
+	String line;
+	while (true){
+		c = (char)Serial.read();
+		if (c != '\n')
+			line += c;
+		else
+			break;
+	}
+	Serial.printf("Received AT command from the Serial : %s",line.c_str());
+	Serial.print(atc.parse(line).c_str());
+}
+
 void receiveDataFromTCP(){
 	while (true){
 		String line = client.readStringUntil('\n');
 		if (line.length() > 0){
-			if (atc.parse(line)){
-				Serial.print("AT Complete : ");
-				Serial.println(line);
-			}
-			else{
-				Serial.print("AT Unable to identify : ");
-				Serial.println(line);
-			}
+			client.print(atc.parse(line).c_str());
 		}
 		else{
 			break;
@@ -352,11 +370,12 @@ void loop() {
 
 	/*三、接收串口消息*/
 	if (Serial.available()){
-		//如果串口连接存在，xxxxx
+		receiveDataFromSerial();
 	}
 
 	/*四、接收TCP消息*/
-	receiveDataFromTCP();
-
+	if (client.available()){
+		receiveDataFromTCP();
+	}
 	
 }
