@@ -257,7 +257,7 @@ void connectWiFi(){
 	
 }
 
-
+//初始化AT指令集
 void initATCommands(){
 
 	CommandItem cmdTest("TEST", [](CommandParameter param)->String{
@@ -295,6 +295,47 @@ void initATCommands(){
 	atc.addCommandItem(cmdLED);
 }
 
+//更新电元状态
+void updateComponentState(){
+	btn.updateState();
+}
+
+//接收来自串口的数据
+void receiveDataFromSerial(){
+	static String temp_s = "";
+	char temp_c;
+
+	if (!Serial)
+		return;
+	while (Serial.available() > 0)
+	{
+		temp_c = char(Serial.read());													//单字节读取串口数据
+		if (temp_c == '\r') {															//判断是否为终止符
+			Serial.printf("Received AT command from the Serial : %s", temp_s.c_str());
+			client.print(atc.parse(temp_s).c_str());
+			temp_s = "";
+		}
+		else {
+			temp_s += temp_c;
+		}
+		delay(2);
+	}
+	
+}
+
+//接收来自TCP的数据
+void receiveDataFromTCP(){
+	while (true){
+		String line = client.readStringUntil('\n');
+		if (line.length() > 0){
+			client.print(atc.parse(line).c_str());
+		}
+		else{
+			break;
+		}
+	}
+}
+
 void setup() {
 	Serial.begin(115200);
 	Serial.println("Start");
@@ -316,54 +357,24 @@ void setup() {
 	//与WiFi建立连接
 	connectWiFi();
 
-	
+
 
 	/*接下来就可以开始TCP通信了！*/
 	//Serial.println("OK!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-	
-	if (!client.connect("172.20.73.137",60000)){
+
+	if (!client.connect("172.20.72.85", 60000)){
 		Serial.println("Failed to connect to the server.");
 		return;
 	}
 	client.println("Hello World!");
 }
 
-void updateComponentState(){
-	btn.updateState();
-}
-
-void receiveDataFromSerial(){
-	char c;
-	String line;
-	while (true){
-		c = (char)Serial.read();
-		if (c != '\n')
-			line += c;
-		else
-			break;
-	}
-	Serial.printf("Received AT command from the Serial : %s",line.c_str());
-	Serial.print(atc.parse(line).c_str());
-}
-
-void receiveDataFromTCP(){
-	while (true){
-		String line = client.readStringUntil('\n');
-		if (line.length() > 0){
-			client.print(atc.parse(line).c_str());
-		}
-		else{
-			break;
-		}
-	}
-}
-
 void loop() {
 	/*一、检测网络连接状态*/
 	//如果丢失WIFI连接
-	//if (WiFi.status() == WL_CONNECTION_LOST){
-	//	connectWiFi();
-	//}
+	if (WiFi.status() == WL_CONNECTION_LOST){
+		connectWiFi();
+	}
 
 	/*二、更新电元状态（这部分如果能实现多线程就好啦！）*/
 	updateComponentState();
