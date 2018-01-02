@@ -2,7 +2,7 @@
 // 
 // 
 
-#include "TsLed.h"
+#include "TsComponent.h"
 #include "Arduino.h"
 
 TsLed::TsLed(uint8_t pinLed){

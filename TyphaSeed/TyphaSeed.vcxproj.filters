@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\TsComponent">
+      <UniqueIdentifier>{bb35ce51-c9ac-48f1-90d3-4615d0f6dd16}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="TyphaSeed.ino" />
@@ -21,22 +24,10 @@
     <ClInclude Include="pins_wemos_d1.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TsButton.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="TsLed.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="__vm\.TyphaSeed.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TsWaterSensor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="TsComponent.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="G:\下载\火狐下载\ArduinoJson.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="JsonConfig.h">
@@ -47,20 +38,20 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="TsButton.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="TsLed.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="TsWaterSensor.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="JsonConfig.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ATCommand.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TsButton.cpp">
+      <Filter>Source Files\TsComponent</Filter>
+    </ClCompile>
+    <ClCompile Include="TsLed.cpp">
+      <Filter>Source Files\TsComponent</Filter>
+    </ClCompile>
+    <ClCompile Include="TsWaterSensor.cpp">
+      <Filter>Source Files\TsComponent</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

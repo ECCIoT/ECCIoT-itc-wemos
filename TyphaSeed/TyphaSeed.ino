@@ -4,22 +4,21 @@
  Author:	Landriesnidis
 */
 
+#include "stdlib.h"
+
 #include "ATCommand.h"
 #include "JsonConfig.h"
 
-#include "TsWaterSensor.h"
-#include "TsLed.h"
-#include "TsButton.h"
+#include "TsComponent.h"
 #include "pins_wemos_d1.h"
 
 #include "ESP8266WiFi.h"
 #include "ESP8266WebServer.h"
 
-
 /*************************************************************************************/
 
 //当前的版本信息
-#define _VERSION "TyphaSeed v0.9.1 beta"
+#define _VERSION "TyphaSeed v0.9.5 beta"
 
 //配置文件中WiFi的SSID和Password字段名称
 #define STR_WIFI_SSID "WIFI_SSID"
@@ -29,18 +28,40 @@
 #define STR_AP_SSID "WeMos D1"
 #define STR_AP_PSWD "12345678"
 
+//配置文件路径
+#define CONFIG_FILE_NAME "/config.json"
+
+//设备唯一标识
+#define SECRET_KEY "6db19e03"
+
 /*************************************************************************************/
 
-
+//Web简易服务器
 ESP8266WebServer server(80);
+//WIFI连接工具类
 WiFiClient client;
-
+//AT指令集
 ATCommand atc;
 
-TsLed led(PIN_LED);
-TsButton btn(PIN_D8,HIGH);
 
-const String CONFIG_FILE_NAME = "/config.json";
+//TsLed led0(PIN_D0);
+//TsLed led1(PIN_D1);
+//TsLed led2(PIN_D2);
+//TsLed led3(PIN_D3_D15);
+//TsLed led4(PIN_D4_D14);
+//TsLed led5(PIN_D5_D13);
+//TsLed led6(PIN_D6_D12);
+//TsLed led7(PIN_D7_D11);
+//
+//TsLed arrLED[8] = { led0, led1, led2, led3, led4, led5, led6, led7 };
+
+TsLed led(PIN_D9_LED);
+
+TsLed relay1(PIN_D3_D15);
+TsLed relay2(PIN_D4_D14);
+TsLed relay[2] = { relay1, relay2};
+
+TsButton btn(PIN_D8,HIGH);
 
 
 //创建JsonConfig
@@ -259,7 +280,6 @@ void connectWiFi(){
 
 //初始化AT指令集
 void initATCommands(){
-
 	CommandItem cmdTest("TEST", [](CommandParameter param)->String{
 		Serial.printf("parameter count : %d\n", param.count());
 		for (int i = 0; i < param.count(); i++){
@@ -267,7 +287,53 @@ void initATCommands(){
 		}
 		return "OK";
 	});
-
+	CommandItem cmdVersion("VERSION", [](CommandParameter param)->String{
+		return _VERSION;
+	});
+	CommandItem cmdKey("KEY", [](CommandParameter param)->String{
+		return SECRET_KEY;
+	});
+	CommandItem cmdInitConfig("INITCONFIG", [](CommandParameter param)->String{
+		jc.deleteConfig();
+		return "OK";
+	});
+	CommandItem cmdConfig("CONFIG", [](CommandParameter param)->String{
+		JsonObject& config = jc.getConfigJson();
+		config.printTo(Serial);
+		Serial.println();
+		return "OK";
+	});
+	CommandItem cmdServer("SERVER", [](CommandParameter param)->String{
+		//当参数个数为0时显示当前的配置，否则将新参数写入配置
+		JsonObject& config = jc.getConfigJson();
+		if (param.count() == 0){
+			String addr = config["SERVER_ADDR"];
+			Serial.println(addr);
+			return "OK";
+		}
+		else if (param.count() == 2){
+			config["SERVER_ADDR"] = param.get(0).c_str();
+			config["SERVER_PORT"] = param.get(0).c_str();
+			jc.saveConfig(config);
+			return "OK";
+		}
+		else{
+			return "ERROR";
+		}
+	});
+	CommandItem cmdRelay("RELAY", [](CommandParameter param)->String{
+		if (param.count() == 2){
+			int pin, value;
+			pin = atoi(param.get(0).c_str());
+			value = atoi(param.get(1).c_str());
+			Serial.printf("Relay #%d -> %d\n",pin,value);
+			relay[pin].setState(value == 1 ? true : false);
+			return "OK";
+		}
+		else{
+			return "ERROR";
+		}
+	});
 	CommandItem cmdLED("LED", [](CommandParameter param)->String{
 		if (param.count() != 1){
 			return "ERROR";
@@ -289,10 +355,33 @@ void initATCommands(){
 		return "OK";
 	});
 
-	
+	//CommandItem cmdBlink("BLINK", [](CommandParameter param)->String{
+	//	if (param.count() != 0){
+	//		return "ERROR";
+	//	}
+	//	int i;
+	//	for (i = 0; i < 8;++i){
+	//		Serial.printf("Blink -> D%d\n",i);
+	//		int j = 20;
+	//		while (j>0){
+	//			arrLED[i].reverse();
+	//			delay(200);
+	//			j--;
+	//		}
+	//	}
+
+	//	return "OK";
+	//});
 
 	atc.addCommandItem(cmdTest);
+	atc.addCommandItem(cmdKey);
+	atc.addCommandItem(cmdVersion);
+	atc.addCommandItem(cmdConfig); 
+	atc.addCommandItem(cmdInitConfig);
+	atc.addCommandItem(cmdServer); 
+	atc.addCommandItem(cmdRelay);
 	atc.addCommandItem(cmdLED);
+	//atc.addCommandItem(cmdBlink);
 }
 
 //更新电元状态
@@ -311,8 +400,9 @@ void receiveDataFromSerial(){
 	{
 		temp_c = char(Serial.read());													//单字节读取串口数据
 		if (temp_c == '\r') {															//判断是否为终止符
-			Serial.printf("Received AT command from the Serial : %s", temp_s.c_str());
-			client.print(atc.parse(temp_s).c_str());
+			//Serial.printf("Received AT command from the Serial : %s", temp_s.c_str());
+			//Serial.printf("%s\n", temp_s.c_str());
+			Serial.println(atc.parse(temp_s).c_str());
 			temp_s = "";
 		}
 		else {
@@ -328,6 +418,7 @@ void receiveDataFromTCP(){
 	while (true){
 		String line = client.readStringUntil('\n');
 		if (line.length() > 0){
+			Serial.printf("%s\n", line.c_str());
 			client.print(atc.parse(line).c_str());
 		}
 		else{
@@ -337,10 +428,13 @@ void receiveDataFromTCP(){
 }
 
 void setup() {
+	//设置串口波特率
 	Serial.begin(115200);
-	Serial.println("Start");
-	//WiFi.disconnect();
-	led.setState(false);
+	//串口中显示启动标识
+	Serial.println("\nStart");
+	//关闭板载LED指示灯
+	led.setState(true);
+	//为还原键添加单击事件代码
 	btn.addEvent([]{
 		if (jc.isExist()){
 			jc.deleteConfig();
@@ -357,16 +451,20 @@ void setup() {
 	//与WiFi建立连接
 	connectWiFi();
 
-
-
 	/*接下来就可以开始TCP通信了！*/
-	//Serial.println("OK!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-
-	if (!client.connect("172.20.72.85", 60000)){
+	//String server_addr = jc.getConfigJson()["SERVER_ADDR"];
+	//int server_port = jc.getConfigJson()["SERVER_PORT"];
+	if (!client.connect("120.25.222.235", 60000)){
 		Serial.println("Failed to connect to the server.");
 		return;
 	}
-	client.println("Hello World!");
+	
+	//client.println("Start");
+
+	/*while (1){
+		relay1.reverse();
+		delay(1000);
+	}*/
 }
 
 void loop() {
@@ -386,6 +484,7 @@ void loop() {
 
 	/*四、接收TCP消息*/
 	if (client.available()){
+		client.status();
 		receiveDataFromTCP();
 	}
 	

@@ -2,7 +2,8 @@
 // 
 // 
 
-#include "TsButton.h"
+#include "TsComponent.h"
+#include "Arduino.h"
 
 TsButton::TsButton(uint8_t pinBtn, uint8_t normal_state = HIGH){
 	pin = pinBtn;
