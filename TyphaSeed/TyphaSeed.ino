@@ -6,7 +6,7 @@
 
 #include "stdlib.h"
 
-#include "ATCommand.h"
+#include "ATCmd.h"
 #include "JsonConfig.h"
 
 #include "TsComponent.h"

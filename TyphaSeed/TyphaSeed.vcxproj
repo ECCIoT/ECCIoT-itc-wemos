@@ -86,14 +86,14 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ATCommand.h" />
+    <ClInclude Include="ATCmd.h" />
     <ClInclude Include="JsonConfig.h" />
     <ClInclude Include="pins_wemos_d1.h" />
     <ClInclude Include="TsComponent.h" />
     <ClInclude Include="__vm\.TyphaSeed.vsarduino.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ATCommand.cpp" />
+    <ClCompile Include="ATCmd.cpp" />
     <ClCompile Include="JsonConfig.cpp" />
     <ClCompile Include="TsButton.cpp" />
     <ClCompile Include="TsLed.cpp" />

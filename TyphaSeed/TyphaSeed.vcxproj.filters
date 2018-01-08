@@ -33,15 +33,12 @@
     <ClInclude Include="JsonConfig.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ATCommand.h">
+    <ClInclude Include="ATCmd.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="JsonConfig.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ATCommand.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TsButton.cpp">
@@ -52,6 +49,9 @@
     </ClCompile>
     <ClCompile Include="TsWaterSensor.cpp">
       <Filter>Source Files\TsComponent</Filter>
+    </ClCompile>
+    <ClCompile Include="ATCmd.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
